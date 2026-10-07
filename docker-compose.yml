@@ -1,0 +1,78 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: core2-app
+
+    working_dir: /var/www/project.com/htdocs
+
+    volumes:
+      - ./:/var/www/project.com/htdocs
+      - ./cache:/var/www/project.com/cache
+      - ./logs:/var/www/project.com/logs
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+    networks:
+      - core2
+
+  nginx:
+    image: nginx:1.27-alpine
+
+    container_name: core2-nginx
+
+    ports:
+      - "8080:80"
+
+    volumes:
+      - ./:/var/www/project.com/htdocs:ro
+      - ./cache:/var/www/project.com/cache:ro
+      - ./logs:/var/www/project.com/logs
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+
+    depends_on:
+      - app
+
+    networks:
+      - core2
+
+  db:
+    image: mysql:8.0
+
+    container_name: core2-db
+
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_general_ci
+
+    environment:
+      MYSQL_DATABASE: project_com
+      MYSQL_USER: core2
+      MYSQL_PASSWORD: core2
+      MYSQL_ROOT_PASSWORD: root
+
+    volumes:
+      - db_data:/var/lib/mysql
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mysqladmin ping -h localhost -uroot -proot --silent"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+    networks:
+      - core2
+
+volumes:
+  db_data:
+
+networks:
+  core2:
